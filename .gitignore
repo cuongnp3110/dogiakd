@@ -1,0 +1,27 @@
+# Build output
+build/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# SAP trace
+*.trc
+
+# Temp
+*.tmp
+*.log
+
+# PyInstaller
+*.manifest
+*.spec.bak
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
