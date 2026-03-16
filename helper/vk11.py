@@ -8,7 +8,9 @@ def updateMaterial(session, code_customer, materials, vkorg="2001"):
     try:
         today = date.today()
         today_str = today.strftime("%d.%m.%Y")
-        end_str = (today + timedelta(days=1)).strftime("%d.%m.%Y")
+        quarter_end_month = ((today.month - 1) // 3 + 1) * 3
+        last_day = 30 if quarter_end_month in (6, 9) else 31
+        end_str = date(today.year, quarter_end_month, last_day).strftime("%d.%m.%Y")
 
         session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nvk11"
         session.FindById("wnd[0]").SendVKey(0)
