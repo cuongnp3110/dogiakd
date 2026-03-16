@@ -8,8 +8,8 @@ a = Analysis(
     ['app.py'],
     pathex=['C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\Lib\\site-packages\\win32', 'C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python310\\Lib\\site-packages\\win32\\lib'],
     binaries=[],
-    datas=[],
-    hiddenimports=['openpyxl', 'win32com', 'win32com.client', 'pythoncom', 'pywintypes', 'win32gui', 'win32api', 'win32process', 'win32event', 'win32con', 'win32gui_struct', 'win32clipboard', 'win32file', 'win32security', 'win32pipe', 'win32net', 'win32console', 'win32timezone', 'commctrl', 'winerror', 'winnt', 'six'],
+    datas=[('version.txt', '.'), ('config.ini', '.'), ('logo.ico', '.')],
+    hiddenimports=['win32com', 'win32com.client', 'pythoncom', 'pywintypes', 'win32gui', 'win32api', 'win32process', 'win32event', 'win32con', 'win32gui_struct', 'win32clipboard', 'win32file', 'win32security', 'win32pipe', 'win32net', 'win32console', 'win32timezone', 'commctrl', 'winerror', 'winnt', 'six', '_socket', 'socket', 'select', 'selectors', 'subprocess', 'shutil', 'zipfile', 'tempfile', 'configparser', 'json', 'urllib', 'urllib.request', 'urllib.parse', 'urllib.error', 'http', 'http.client', 'email', 'ssl', '_ssl', 'platform', 'difflib', 'ctypes.wintypes'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -37,6 +37,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='logo.ico',
 )
 coll = COLLECT(
     exe,

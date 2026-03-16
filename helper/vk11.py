@@ -7,14 +7,8 @@ def updateMaterial(session, code_customer, materials, vkorg="2001"):
     """
     try:
         today = date.today()
-        quarter = (today.month - 1) // 3 + 1
-        last_month_of_quarter = quarter * 3
-        if last_month_of_quarter == 12:
-            end_of_quarter = date(today.year, 12, 31)
-        else:
-            end_of_quarter = date(today.year, last_month_of_quarter + 1, 1) - timedelta(days=1)
         today_str = today.strftime("%d.%m.%Y")
-        end_of_quarter_str = end_of_quarter.strftime("%d.%m.%Y")
+        end_str = (today + timedelta(days=1)).strftime("%d.%m.%Y")
 
         session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nvk11"
         session.FindById("wnd[0]").SendVKey(0)
@@ -41,20 +35,9 @@ def updateMaterial(session, code_customer, materials, vkorg="2001"):
 
                 # Nhập ngày bắt đầu
                 session.FindById(f"wnd[0]/usr/tblSAPMV13ATCTRL_FAST_ENTRY/ctxtRV13A-DATAB[8,{idx}]").Text = today_str
-                # Nhập ngày kết thúc: ưu tiên từ Excel, nếu không có thì dùng cuối quý
-                mat_end_date = mat.get("ngaykt", "").strip()
-                if mat_end_date:
-                    # Format lại thành dd.mm.yyyy nếu cần
-                    for fmt in ("%d.%m.%Y", "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y%m%d"):
-                        try:
-                            parsed = datetime.strptime(mat_end_date, fmt)
-                            mat_end_date = parsed.strftime("%d.%m.%Y")
-                            break
-                        except ValueError:
-                            continue
-                datbi_str = mat_end_date if mat_end_date else end_of_quarter_str
-                session.FindById(f"wnd[0]/usr/tblSAPMV13ATCTRL_FAST_ENTRY/ctxtRV13A-DATBI[9,{idx}]").Text = datbi_str
-                results.append({"masp": code_material, "status": "ok", "msg": f"{code_material} - giá {cost} ({today_str} -> {datbi_str})"})
+                # Nhập ngày kết thúc
+                session.FindById(f"wnd[0]/usr/tblSAPMV13ATCTRL_FAST_ENTRY/ctxtRV13A-DATBI[9,{idx}]").Text = end_str
+                results.append({"masp": code_material, "status": "ok", "msg": f"{code_material} - giá {cost} ({today_str} - {end_str})"})
             except Exception as e:
                 results.append({"masp": code_material, "status": "error", "msg": str(e)})
 
@@ -110,6 +93,7 @@ def updateMaterialV2(session, code_customer, materials, sales_org):
     try:
         today = date.today()
         today_str = today.strftime("%d.%m.%Y")
+        end_str = (today + timedelta(days=1)).strftime("%d.%m.%Y")
 
         session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nvk11"
         session.FindById("wnd[0]").SendVKey(0)
@@ -152,12 +136,14 @@ def updateMaterialV2(session, code_customer, materials, sales_org):
                 session.FindById(f"{table_id}/ctxtKONP-KONWA[5,{visible_index}]").Text = "VND"
                 # Nhập ngày bắt đầu
                 session.FindById(f"{table_id}/ctxtRV13A-DATAB[10,{visible_index}]").Text = today_str
-                results.append({"masp": code_material, "status": "ok", "msg": f"{code_material} - giá {cost} ({today_str})"})
+                # Nhập ngày kết thúc
+                session.FindById(f"{table_id}/ctxtRV13A-DATBI[11,{visible_index}]").Text = end_str
+                results.append({"masp": code_material, "status": "ok", "msg": f"{code_material} - giá {cost} ({today_str} - {end_str})"})
             except Exception as e:
                 results.append({"masp": code_material, "status": "error", "msg": str(e)})
 
         # Nhấn Enter để validate tất cả
-        # session.FindById("wnd[0]").SendVKey(0)
+        session.FindById("wnd[0]").SendVKey(0)
 
         # Kiểm tra lỗi sau khi validate
         message = get_status_message(session)

@@ -1,0 +1,2 @@
+1. pyinstaller DoGiaKD.spec --noconfirm
+2. $site = "C:\Users\Admin\AppData\Local\Programs\Python\Python310\Lib\site-packages"; Copy-Item "$site\pywinauto" "C:\Users\Admin\Desktop\DoGiaKD\dist\DoGiaKD\pywinauto" -Recurse -Force; Copy-Item "$site\comtypes" "C:\Users\Admin\Desktop\DoGiaKD\dist\DoGiaKD\comtypes" -Recurse -Force; Write-Output "Done"

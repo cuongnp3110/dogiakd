@@ -4,14 +4,17 @@ import warnings
 import time
 from pywinauto import application
 import os
+import sys
 #Bỏ cảnh báo
 warnings.filterwarnings("ignore", category=UserWarning, message="32-bit application should be automated using 32-bit Python")
 
 def ReadConfig():
     try:
         config = configparser.ConfigParser()
-        # BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        BASE_DIR = "./"
+        if getattr(sys, 'frozen', False):
+            BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        else:
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         config_path = os.path.join(BASE_DIR, 'config.ini')
         config.read(config_path)
         env = config.get('ENV', 'current').upper() 
