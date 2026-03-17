@@ -135,6 +135,26 @@ def build(root, frame_b):
                 i, item["masp"], item["tensp"], item["soluong"], thue,
                 dongia_fmt, gia_cu_fmt, gia_moi_fmt, tong_moi_fmt, dieu_kien, nhom_nganh
             ), tags=(tag,))
+        # Tính tổng cũ (giá gốc từ API) và tổng mới (giá chiết khấu trên SO)
+        sum_cu = 0
+        sum_moi = 0
+        for item in filtered:
+            try:
+                sl = float(item['soluong']) if item['soluong'] else 0
+                dg = float(item['dongia']) if item['dongia'] else 0
+                gm = float(item['gia_moi']) if item['gia_moi'] else 0
+                sum_cu += sl * gm
+                sum_moi += sl * dg
+            except (ValueError, TypeError):
+                pass
+        diff = sum_moi - sum_cu
+        tree_b.insert("", tk.END, values=(
+            "", "", "TỔNG CỘNG", "", "",
+            "", f"{sum_cu:,.0f}", "",
+            f"{sum_moi:,.0f}",
+            f"CK: {abs(diff):,.0f}", ""
+        ), tags=("summary",))
+
         info_txt = f"  SO: {entry_so.get().strip()}"
         if cust_info:
             info_txt += f"  |  KH: {cust_info}"
@@ -359,6 +379,7 @@ def build(root, frame_b):
     tree_b.tag_configure("even", background=ROW_EVEN)
     tree_b.tag_configure("diff_odd", background="#fff3cd")
     tree_b.tag_configure("diff_even", background="#ffeeba")
+    tree_b.tag_configure("summary", background="#d5e8d4", font=("Segoe UI", 10, "bold"))
 
     tbl_frame_b.columnconfigure(0, weight=1)
     tbl_frame_b.rowconfigure(0, weight=1)
@@ -366,6 +387,8 @@ def build(root, frame_b):
     tree_b.configure(yscrollcommand=scrollbar_b.set)
     tree_b.grid(row=0, column=0, sticky="nsew")
     scrollbar_b.grid(row=0, column=1, sticky="ns")
+
+
 
     # ---- Status bar ----
     status_bar_b = tk.Frame(frame_b, bg=STATUS_BG, height=32)
