@@ -19,6 +19,7 @@ def build(root, frame_b):
 
     CURRENT_DATA_B = []
     CURRENT_HEADER_B = {}
+    ORIGINAL_PRICES = {}
 
     # ---- Loading overlay ----
     _state = {"frame": None, "label": None, "anim_id": None, "dots": 0}
@@ -86,6 +87,7 @@ def build(root, frame_b):
             for it in items:
                 matnr_raw = it.get("MATNR", "")
                 matnr = matnr_raw.lstrip("0")
+                don_vi = it.get("VRKME", "")
                 dongia = float(it.get("NETPR", 0))
                 gia_cu = float(it.get("NETWR", 0))
                 pm = price_map.get(matnr, {})
@@ -99,9 +101,9 @@ def build(root, frame_b):
                     "dongia": dongia, "gia_cu": gia_cu,
                     "gia_moi": gia_moi, "dieu_kien": dieu_kien,
                     "nhom_nganh": nhom_nganh,
+                    "don_vi": don_vi
                 })
             CURRENT_DATA_B = result
-
             cust_info = f"{header.get('KUNNR', '').lstrip('0')} - {header.get('NAME1', '')}"
             branch = header.get("VKORG_TEXT", "")
             root.after(0, lambda: hide_loading_b())
@@ -111,7 +113,13 @@ def build(root, frame_b):
     def _show_results_b(results, cust_info="", branch="", warnings=None, order_summary=None, header=None):
         for row in tree_b.get_children():
             tree_b.delete(row)
+        ORIGINAL_PRICES.clear()
         filtered = [item for item in results if item['gia_moi'] not in ("", None)]
+        # Sắp xếp: hàng trùng mã SP lên đầu
+        from collections import Counter
+        masp_count = Counter(item['masp'] for item in filtered)
+        dup_masps = {m for m, c in masp_count.items() if c > 1}
+        filtered.sort(key=lambda x: (0 if x['masp'] in dup_masps else 1, x['masp']))
         for i, item in enumerate(filtered, start=1):
             dongia_fmt = f"{item['dongia']:,.0f}" if item['dongia'] else ""
             gia_cu_fmt = f"{item['gia_cu']:,.0f}" if item['gia_cu'] else ""
@@ -131,10 +139,18 @@ def build(root, frame_b):
                 tag = "diff_even" if i % 2 == 0 else "diff_odd"
             else:
                 tag = "even" if i % 2 == 0 else "odd"
-            tree_b.insert("", tk.END, values=(
-                i, item["masp"], item["tensp"], item["soluong"], thue,
+            iid = tree_b.insert("", tk.END, values=(
+                i, item["masp"], item["tensp"], item["soluong"], item.get("don_vi", ""), thue,
                 dongia_fmt, gia_cu_fmt, gia_moi_fmt, tong_moi_fmt, dieu_kien, nhom_nganh
             ), tags=(tag,))
+            ORIGINAL_PRICES[iid] = {"price": float(item['gia_moi']) if item['gia_moi'] else 0, "tag": tag}
+        # Tô đỏ các dòng có Mã SP trùng
+        if dup_masps:
+            for child in tree_b.get_children():
+                vals = tree_b.item(child, "values")
+                if vals[1] in dup_masps:
+                    tree_b.item(child, tags=("dup",))
+
         # Tính tổng cũ (giá gốc từ API) và tổng mới (giá chiết khấu trên SO)
         sum_cu = 0
         sum_moi = 0
@@ -143,13 +159,13 @@ def build(root, frame_b):
                 sl = float(item['soluong']) if item['soluong'] else 0
                 dg = float(item['dongia']) if item['dongia'] else 0
                 gm = float(item['gia_moi']) if item['gia_moi'] else 0
-                sum_cu += sl * gm
-                sum_moi += sl * dg
+                sum_cu += sl * dg
+                sum_moi += sl * gm
             except (ValueError, TypeError):
                 pass
         diff = sum_moi - sum_cu
         tree_b.insert("", tk.END, values=(
-            "", "", "TỔNG CỘNG", "", "",
+            "", "", "TỔNG CỘNG", "", "", "",
             "", f"{sum_cu:,.0f}", "",
             f"{sum_moi:,.0f}",
             f"CK: {abs(diff):,.0f}", ""
@@ -219,19 +235,29 @@ def build(root, frame_b):
         if not selected:
             messagebox.showwarning("Chưa chọn dòng", "Vui lòng chọn ít nhất một dòng trong bảng để đổ giá.")
             return
-        items = []
+        items_raw = []
         for sel in selected:
             values = tree_b.item(sel, "values")
-            gia_moi = values[7].replace(",", "").strip()  # cột index 7 = Giá mới
+            gia_moi = values[8].replace(",", "").strip()  # cột index 8 = Giá mới
             if not gia_moi:
                 continue
-            items.append({
+            items_raw.append({
                 "masp": values[1], "tensp": values[2],
-                "gia": gia_moi, "gia_moi_fmt": values[7],  # index 7 = Giá mới
+                "don_vi": values[4], "soluong": values[3],
+                "gia": gia_moi, "gia_moi_fmt": values[8],  # index 8 = Giá mới
             })
-        if not items:
+        if not items_raw:
             messagebox.showwarning("Không có giá mới", "Các dòng đã chọn không có giá mới.")
             return
+        # Loại bỏ trùng mã SP, chỉ giữ dòng đầu tiên
+        seen = set()
+        items = []
+        for it in items_raw:
+            if it["masp"] not in seen:
+                seen.add(it["masp"])
+                items.append(it)
+            else:
+                continue
 
         customer_code = CURRENT_HEADER_B.get("KUNNR", "").lstrip("0")
         sales_org = CURRENT_HEADER_B.get("VKORG", "2001")
@@ -265,7 +291,7 @@ def build(root, frame_b):
                     root.after(0, lambda: messagebox.showerror("Lỗi", "Không thể kết nối SAP. Kiểm tra lại cấu hình."))
                     return
 
-                mat_list = [{"masp": it["masp"], "gia": it["gia"]} for it in items]
+                mat_list = [{"masp": it["masp"], "gia": it["gia"], "don_vi": it["don_vi"]} for it in items]
                 results = updateMaterialV2(session, customer_code, mat_list, sales_org)
 
                 success = 0
@@ -299,6 +325,94 @@ def build(root, frame_b):
                 root.after(0, lambda: btn_update_b.config(state=tk.NORMAL, text="Đổ giá SAP"))
         threading.Thread(target=_run, daemon=True).start()
 
+    def apply_discount_b():
+        """Áp dụng phần trăm giảm thêm cho các dòng đã chọn."""
+        try:
+            pct = float(spinbox_pct.get())
+        except ValueError:
+            messagebox.showwarning("Lỗi", "Phần trăm giảm không hợp lệ.")
+            return
+        if pct < 0 or pct > 100:
+            messagebox.showwarning("Lỗi", "Phần trăm giảm phải từ 0 đến 100.")
+            return
+        selected = tree_b.selection()
+        if not selected:
+            messagebox.showwarning("Chưa chọn dòng", "Vui lòng chọn ít nhất một dòng để áp dụng giảm giá.")
+            return
+        count = 0
+        for iid in selected:
+            if iid not in ORIGINAL_PRICES:
+                continue
+            original = ORIGINAL_PRICES[iid]["price"]
+            new_price = original * (1 - pct / 100)
+            values = list(tree_b.item(iid, "values"))
+            values[8] = f"{new_price:,.0f}"
+            try:
+                sl = float(str(values[3]).replace(",", "")) if values[3] else 0
+                tong_moi = sl * new_price
+                values[9] = f"{tong_moi:,.0f}" if tong_moi else ""
+            except (ValueError, TypeError):
+                pass
+            tree_b.item(iid, values=values, tags=("discounted",))
+            count += 1
+        recalc_summary_b()
+        lbl_status_b.config(text=f"  Đã áp dụng giảm {pct}% cho {count} dòng")
+
+    def reset_discount_b():
+        """Bỏ giảm giá cho các dòng đã chọn, khôi phục giá gốc."""
+        selected = tree_b.selection()
+        if not selected:
+            messagebox.showwarning("Chưa chọn dòng", "Vui lòng chọn ít nhất một dòng.")
+            return
+        count = 0
+        for iid in selected:
+            if iid not in ORIGINAL_PRICES:
+                continue
+            original = ORIGINAL_PRICES[iid]["price"]
+            orig_tag = ORIGINAL_PRICES[iid]["tag"]
+            values = list(tree_b.item(iid, "values"))
+            values[8] = f"{original:,.0f}"
+            try:
+                sl = float(str(values[3]).replace(",", "")) if values[3] else 0
+                tong_moi = sl * original
+                values[9] = f"{tong_moi:,.0f}" if tong_moi else ""
+            except (ValueError, TypeError):
+                pass
+            tree_b.item(iid, values=values, tags=(orig_tag,))
+            count += 1
+        recalc_summary_b()
+        lbl_status_b.config(text=f"  Đã khôi phục giá gốc cho {count} dòng")
+
+    def recalc_summary_b():
+        """Tính lại dòng tổng cộng trong bảng."""
+        all_children = tree_b.get_children()
+        summary_iid = None
+        sum_cu = 0
+        sum_moi = 0
+        for iid in all_children:
+            tags = tree_b.item(iid, "tags")
+            if "summary" in tags:
+                summary_iid = iid
+                continue
+            vals = tree_b.item(iid, "values")
+            try:
+                sl = float(str(vals[3]).replace(",", "")) if vals[3] else 0
+                dg = float(str(vals[6]).replace(",", "")) if vals[6] else 0
+                gm = float(str(vals[8]).replace(",", "")) if vals[8] else 0
+                sum_cu += sl * dg
+                sum_moi += sl * gm
+            except (ValueError, TypeError):
+                pass
+        diff = sum_moi - sum_cu
+        new_vals = (
+            "", "", "TỔNG CỘNG", "", "", "",
+            "", f"{sum_cu:,.0f}", "",
+            f"{sum_moi:,.0f}",
+            f"CK: {abs(diff):,.0f}", ""
+        )
+        if summary_iid:
+            tree_b.item(summary_iid, values=new_vals)
+
     # ---- UI: Card tìm kiếm ----
     card_search_b = tk.Frame(frame_b, bg=CARD_BG, bd=0, highlightthickness=1, highlightbackground="#dce6f0")
     card_search_b.pack(fill=tk.X, padx=16, pady=(16, 8))
@@ -323,8 +437,34 @@ def build(root, frame_b):
     btn_update_b.bind("<Enter>", lambda e: on_enter_btn(e, BTN_SUCCESS_HOVER))
     btn_update_b.bind("<Leave>", lambda e: on_leave_btn(e, BTN_SUCCESS))
 
+    # ---- Giảm thêm % ----
+    tk.Label(inner_search_b, text="Giảm thêm (%)", font=("Segoe UI", 10, "bold"), bg=CARD_BG, fg=TEXT_COLOR).grid(
+        row=0, column=2, padx=(16, 0), sticky=tk.W)
+
+    spinbox_pct = ttk.Combobox(
+        inner_search_b, values=["1", "2", "3", "4", "5"], width=5,
+        font=("Segoe UI", 11), state="readonly")
+    spinbox_pct.set("1")
+    spinbox_pct.grid(row=1, column=2, padx=(16, 4), pady=(4, 0), ipady=5, sticky=tk.W)
+
+    btn_apply_disc = tk.Button(
+        inner_search_b, text="Áp dụng giảm", font=("Segoe UI", 10, "bold"),
+        bg="#e67e22", fg="white", activebackground="#d35400", activeforeground="white",
+        relief=tk.FLAT, cursor="hand2", padx=12, pady=4, command=apply_discount_b)
+    btn_apply_disc.grid(row=1, column=3, padx=(4, 4), pady=(4, 0), ipady=3)
+    btn_apply_disc.bind("<Enter>", lambda e: on_enter_btn(e, "#d35400"))
+    btn_apply_disc.bind("<Leave>", lambda e: on_leave_btn(e, "#e67e22"))
+
+    btn_reset_disc = tk.Button(
+        inner_search_b, text="Bỏ giảm", font=("Segoe UI", 10),
+        bg="#95a5a6", fg="white", activebackground="#7f8c8d", activeforeground="white",
+        relief=tk.FLAT, cursor="hand2", padx=10, pady=4, command=reset_discount_b)
+    btn_reset_disc.grid(row=1, column=4, padx=(0, 8), pady=(4, 0), ipady=3)
+    btn_reset_disc.bind("<Enter>", lambda e: on_enter_btn(e, "#7f8c8d"))
+    btn_reset_disc.bind("<Leave>", lambda e: on_leave_btn(e, "#95a5a6"))
+
     lbl_info_b = tk.Label(inner_search_b, text="", font=("Segoe UI", 9, "bold"), bg=CARD_BG, fg=TEXT_COLOR, anchor=tk.W)
-    lbl_info_b.grid(row=1, column=2, columnspan=2, padx=(16, 0), pady=(4, 0), sticky=tk.W)
+    lbl_info_b.grid(row=1, column=5, columnspan=2, padx=(16, 0), pady=(4, 0), sticky=tk.W)
 
     # ---- UI: Thông tin order (giữa search card và bảng) ----
     summary_frame_b = tk.Frame(frame_b, bg=BG_COLOR)
@@ -348,13 +488,14 @@ def build(root, frame_b):
     tbl_frame_b = tk.Frame(card_table_b, bg=CARD_BG)
     tbl_frame_b.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-    columns_b = ("stt", "masp", "tensp", "soluong", "thue", "dongia", "gia_cu", "gia_moi", "tong_moi", "dieu_kien", "nhom_nganh")
+    columns_b = ("stt", "masp", "tensp", "soluong", "don_vi", "thue", "dongia", "gia_cu", "gia_moi", "tong_moi", "dieu_kien", "nhom_nganh")
     tree_b = ttk.Treeview(tbl_frame_b, columns=columns_b, show="headings", height=14, style="Custom.Treeview", selectmode="extended")
 
     tree_b.heading("stt", text="STT")
     tree_b.heading("masp", text="Mã SP")
     tree_b.heading("tensp", text="Tên SP")
     tree_b.heading("soluong", text="Số lượng")
+    tree_b.heading("don_vi", text="Đơn vị")
     tree_b.heading("thue", text="Thuế")
     tree_b.heading("dongia", text="Giá cũ")
     tree_b.heading("gia_cu", text="Tổng cũ")
@@ -367,6 +508,7 @@ def build(root, frame_b):
     tree_b.column("masp", width=120, anchor=tk.CENTER, minwidth=80)
     tree_b.column("tensp", width=200, anchor=tk.W, minwidth=130)
     tree_b.column("soluong", width=65, anchor=tk.CENTER, minwidth=50)
+    tree_b.column("don_vi", width=70, anchor=tk.CENTER, minwidth=50)
     tree_b.column("thue", width=80, anchor=tk.W, minwidth=60)
     tree_b.column("dongia", width=85, anchor=tk.E, minwidth=65)
     tree_b.column("gia_cu", width=85, anchor=tk.E, minwidth=65)
@@ -380,6 +522,8 @@ def build(root, frame_b):
     tree_b.tag_configure("diff_odd", background="#fff3cd")
     tree_b.tag_configure("diff_even", background="#ffeeba")
     tree_b.tag_configure("summary", background="#d5e8d4", font=("Segoe UI", 10, "bold"))
+    tree_b.tag_configure("dup", background="#f5b7b1", foreground="#922b21")
+    tree_b.tag_configure("discounted", background="#c8e6c9", foreground="#1b5e20")
 
     tbl_frame_b.columnconfigure(0, weight=1)
     tbl_frame_b.rowconfigure(0, weight=1)

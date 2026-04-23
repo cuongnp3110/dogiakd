@@ -55,7 +55,7 @@ CUSTOMER_GROUP_MAP = {
     "T3 - Trang trại loại B3": "T3",
     "T5 - Trang trại loại B2": "T5",
     "T6 - Trang trại loại B1": "T6",
-    "T7 - Trang trại loại TT": "T7",
+    "T7 - Trang trại loại B0": "T7",
     "T8 - Trang trại loại C": "T8",
     "Z1 - Đại lý loại I": "Z1",
     "Z2 - Đại lý loại II": "Z2",
@@ -197,8 +197,10 @@ def fetch_prices_from_api(customer_code, sale_org):
                     "masp": p.get("productCode", ""),
                     "tensp": p.get("productName", ""),
                     "gia": p.get("price", 0),
+                    "ghi_chu": p.get("note", ""),
                 })
-            return result, data.get("customerName", ""), None
+            customer_info = f"{data.get('customerName', '')} - {data.get('typeCustomer', '')}"
+            return result, customer_info, None
         else:
             return [], "", body.get("message", "Không có dữ liệu")
     except urllib.error.HTTPError as e:

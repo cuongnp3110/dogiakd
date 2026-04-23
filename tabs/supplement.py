@@ -353,7 +353,7 @@ def build(root, frame_e):
         CURRENT_DATA_E.clear()
         CURRENT_DATA_E["KUNNR"] = main_info.get("customerCode", "")
         CURRENT_DATA_E["NAME1"] = kh_name
-        CURRENT_DATA_E["VKORG"] = main_info.get("salesOrg", "2001")
+        CURRENT_DATA_E["VKORG"] = main_info.get("salesOrder", "2001")
 
         # Summary
         _fill_summary(summary)
@@ -419,7 +419,7 @@ def build(root, frame_e):
 
         def _run():
             try:
-                from helper.vk11 import updateMaterialV2
+                from helper.vk11 import updateMaterialV3
                 session = _get_or_create_sap_session()
                 if session == "MAX_SESSIONS":
                     root.after(0, lambda: messagebox.showwarning("Quá giới hạn session",
@@ -430,7 +430,7 @@ def build(root, frame_e):
                     return
 
                 mat_list = [{"masp": it["masp"], "gia": it["gia"]} for it in items]
-                results = updateMaterialV2(session, customer_code, mat_list, sales_org)
+                results = updateMaterialV3(session, customer_code, mat_list, sales_org)
 
                 success = 0
                 errors = []

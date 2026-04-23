@@ -191,7 +191,7 @@ def build(root, frame_a):
         for i, item in enumerate(results, start=1):
             gia_fmt = f"{item['gia']:,.0f}"
             tag = "even" if i % 2 == 0 else "odd"
-            tree.insert("", tk.END, values=(i, item["makh"], item["masp"], item.get("tensp", ""), gia_fmt), tags=(tag,))
+            tree.insert("", tk.END, values=(i, item["makh"], item["masp"], item.get("tensp", ""), gia_fmt, item.get("ghi_chu", "")), tags=(tag,))
         name_txt = f" - {cust_name}" if cust_name else ""
         lbl_status.config(text=f"  Tìm thấy {len(results)} sản phẩm{name_txt}")
 
@@ -212,7 +212,7 @@ def build(root, frame_a):
             values = tree.item(sel, "values")
             items.append({
                 "makh": values[1], "masp": values[2], "tensp": values[3],
-                "gia": values[4].replace(",", ""), "gia_fmt": values[4], "ngaykt": "",
+                "gia": values[4].replace(",", ""), "gia_fmt": values[4], "ngaykt": "", "ghi_chu": values[5],
             })
         count = len(items)
         MAX_SHOW = 10
@@ -339,7 +339,7 @@ def build(root, frame_a):
     tbl_frame = tk.Frame(card_table, bg=CARD_BG)
     tbl_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-    columns = ("stt", "makh", "masp", "tensp", "gia")
+    columns = ("stt", "makh", "masp", "tensp", "gia", "ghi_chu")
     tree = ttk.Treeview(tbl_frame, columns=columns, show="headings", height=14, style="Custom.Treeview", selectmode="extended")
 
     tree.heading("stt", text="STT")
@@ -347,12 +347,13 @@ def build(root, frame_a):
     tree.heading("masp", text="Mã SP")
     tree.heading("tensp", text="Tên SP")
     tree.heading("gia", text="Giá (VNĐ)")
-
+    tree.heading("ghi_chu", text="Ghi chú")
     tree.column("stt", width=50, anchor=tk.CENTER, minwidth=40)
     tree.column("makh", width=120, anchor=tk.CENTER, minwidth=80)
     tree.column("masp", width=120, anchor=tk.CENTER, minwidth=80)
-    tree.column("tensp", width=250, anchor=tk.W, minwidth=150)
-    tree.column("gia", width=130, anchor=tk.E, minwidth=80)
+    tree.column("tensp", width=250, anchor=tk.CENTER, minwidth=150)
+    tree.column("gia", width=130, anchor=tk.CENTER, minwidth=80)
+    tree.column("ghi_chu", width=100, anchor=tk.CENTER, minwidth=50)
 
     tree.tag_configure("odd", background=ROW_ODD)
     tree.tag_configure("even", background=ROW_EVEN)

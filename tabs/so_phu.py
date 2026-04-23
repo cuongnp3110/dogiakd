@@ -134,7 +134,7 @@ def build(root, frame_d):
 
         def _run():
             try:
-                from helper.vk11 import updateMaterialV2
+                from helper.vk11 import updateMaterialV3
                 session = _get_or_create_sap_session()
                 if session == "MAX_SESSIONS":
                     root.after(0, lambda: messagebox.showwarning("Quá giới hạn session",
@@ -145,7 +145,7 @@ def build(root, frame_d):
                     return
 
                 mat_list = [{"masp": it["masp"], "gia": it["gia"]} for it in items]
-                results = updateMaterialV2(session, customer_code, mat_list, sales_org)
+                results = updateMaterialV3(session, customer_code, mat_list, sales_org)
 
                 success = 0
                 errors = []
